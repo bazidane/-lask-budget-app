@@ -1,17 +1,16 @@
 name: "Security Pipeline (SAST & SCA)"
-
+ 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-
+ 
 permissions:
   security-events: write
   contents: read
-
+ 
 jobs:
-  # JOB 1 : SAST avec Semgrep
   sast-semgrep:
     name: SAST Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -20,56 +19,32 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Run Semgrep
         run: |
-          semgrep scan \
-            --config "p/python" \
-            --config "p/flask" \
-            --config "p/security-audit" \
-            --sarif --output semgrep.sarif
-            
+          semgrep scan --config "p/python" --config "p/flask" --config "p/security-audit" --sarif --output semgrep.sarif
       - name: Upload Semgrep results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
         if: always()
-
-  # JOB 2 : SCA avec Snyk (Correction ici)
+ 
   sca-snyk:
     name: SCA Scan (Snyk)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      # IMPORTANT : Snyk Python a besoin que les dépendances soient installées pour générer le SARIF
-      - name: Install dependencies
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+      - name: Run Snyk Test
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/python@master
-        continue-on-error: true # Empêche le blocage si des failles sont trouvées
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --sarif-file-output=snyk.sarif
-
-      # Vérifiretion de sécurité pourfefefeurer que le fichier existe avant l'upload
-      - name: Upload Snyk results to GitHub
+          snyk test --token=${{ secrets.SNYK_TOKEN }} --file=requirements.txt --package-manager=pip --sarif-file-output=snyk.sarif || true
+      - name: Upload Snyk results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk.sarif
         if: always()
-
-  # JOB 3 : Rapport final
+ 
   reporting:
     name: Final Report
     needs: [sast-semgrep, sca-snyk]
@@ -78,5 +53,5 @@ jobs:
     steps:
       - name: Summary
         run: |
-          echo "### 🚀 Security Scan Sxeummary" >> $GITHUB_STEP_SUMMARY
-          echo "Les analyses Snyk (SCA) et Semgrep (SAST) sont terminées." >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Vérifiez l'onglet **Security > Code Scanning** pour voir les vulnérabilités." >> $GITHUB_STEP_SUMMARY
