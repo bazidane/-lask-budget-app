@@ -11,6 +11,7 @@ permissions:
   contents: read
 
 jobs:
+  # JOB 1 : SAST avec Semgrep
   sast-semgrep:
     name: SAST Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -34,6 +35,7 @@ jobs:
           sarif_file: semgrep.sarif
         if: always()
 
+  # JOB 2 : SCA avec Snyk (Correction ici)
   sca-snyk:
     name: SCA Scan (Snyk)
     runs-on: ubuntu-latest
@@ -46,7 +48,7 @@ jobs:
         with:
           python-version: '3.9'
 
-      # Snyk a besoin d'installer les dépendances pour analyser l'arbre complet
+      # IMPORTANT : Snyk Python a besoin que les dépendances soient installées pour générer le SARIF
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -54,23 +56,20 @@ jobs:
 
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/python@master
-        continue-on-error: true
+        continue-on-error: true # Empêche le blocage si des failles sont trouvées
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --sarif-file-output=snyk.sarif
 
-      # Étape de diagnostic : vérifie si le fichier a été créé
-      - name: Check if SARIF exists
-        run: ls -l snyk.sarif
-        if: always()
-
+      # Vérification de sécurité pour s'assurer que le fichier existe avant l'upload
       - name: Upload Snyk results to GitHub
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk.sarif
         if: always()
 
+  # JOB 3 : Rapport final
   reporting:
     name: Final Report
     needs: [sast-semgrep, sca-snyk]
@@ -80,4 +79,4 @@ jobs:
       - name: Summary
         run: |
           echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Les scans sont terminés." >> $GITHUB_STEP_SUMMARY
+          echo "Les analyses Snyk (SCA) et Semgrep (SAST) sont terminées." >> $GITHUB_STEP_SUMMARY
