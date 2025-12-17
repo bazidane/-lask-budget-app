@@ -6,11 +6,14 @@ on:
   pull_request:
     branches: [ "main" ]
  
+# --- DROITS D'ACCÈS ---
+# Permet au workflow d'écrire les rapports dans l'onglet Security de GitHub
 permissions:
   security-events: write
   contents: read
  
 jobs:
+  # JOB 1 : Analyse du code source (SAST) avec Semgrep
   sast-semgrep:
     name: SAST Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -33,6 +36,7 @@ jobs:
           sarif_file: semgrep.sarif
         if: always()
  
+  # JOB 2 : Analyse des dépendances (SCA) avec Snyk
   sca-snyk:
     name: SCA Scan (Snyk)
     runs-on: ubuntu-latest
@@ -43,13 +47,11 @@ jobs:
       - name: Install Snyk CLI
         run: npm install -g snyk
  
-      - name: Run Snyk Test & Generate SARIF
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Run Snyk Test
+        # On utilise le token stocké dans les secrets GitHub
+        # Le "|| true" évite de bloquer le pipeline pour pouvoir uploader le rapport
         run: |
-          snyk auth ${SNYK_TOKEN}
-          # On force le succès (|| true) pour que le fichier sarif soit conservé
-          snyk test --sarif-file-output=snyk.sarif || true
+          snyk test --token=${{ secrets.SNYK_TOKEN }} --sarif-file-output=snyk.sarif || true
  
       - name: Upload Snyk results to GitHub
         uses: github/codeql-action/upload-sarif@v3
@@ -57,6 +59,7 @@ jobs:
           sarif_file: snyk.sarif
         if: always()
  
+  # JOB 3 : Rapport de synthèse
   reporting:
     name: Final Report
     needs: [sast-semgrep, sca-snyk]
@@ -66,4 +69,5 @@ jobs:
       - name: Summary
         run: |
           echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Vérifiez l'onglet **Security > Code Scanning** pour le détail." >> $GITHUB_STEP_SUMMARY
+          echo "Analyses terminées avec succès." >> $GITHUB_STEP_SUMMARY
+          echo "Allez dans l'onglet **Security > Code scanning** pour corriger les failles." >> $GITHUB_STEP_SUMMARY
