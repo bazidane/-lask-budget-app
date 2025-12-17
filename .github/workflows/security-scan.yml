@@ -6,11 +6,13 @@ on:
   pull_request:
     branches: [ "main" ]
  
+# --- DROITS D'ACCÈS POUR L'ONGLET SECURITY ---
 permissions:
   security-events: write
   contents: read
  
 jobs:
+  # JOB 1 : Analyse SAST avec Semgrep (Ton code Python)
   sast-semgrep:
     name: SAST Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -19,15 +21,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+ 
       - name: Run Semgrep
         run: |
-          semgrep scan --config "p/python" --config "p/flask" --config "p/security-audit" --sarif --output semgrep.sarif
+          semgrep scan \
+            --config "p/python" \
+            --config "p/flask" \
+            --config "p/security-audit" \
+            --sarif --output semgrep.sarif
       - name: Upload Semgrep results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
         if: always()
  
+  # JOB 2 : Analyse SCA avec Snyk (Tes bibliothèques)
   sca-snyk:
     name: SCA Scan (Snyk)
     runs-on: ubuntu-latest
@@ -39,12 +47,11 @@ jobs:
         run: npm install -g snyk
  
       - name: Run Snyk Test
-        # LE SECRET : --command=skip force snyk à ne pas essayer d'installer les deps
-        # On utilise le nom SNYK_TOKEN (vérifie bien le N dans tes secrets GitHub)
+        # On force Snyk à lire le fichier sans faire d'installation (pip install) pour éviter les conflits
         run: |
           snyk test --token=${{ secrets.SNYK_TOKEN }} \
                     --file=requirements.txt \
-                    --command=skip \
+                    --package-manager=pip \
                     --sarif-file-output=snyk.sarif || true
  
       - name: Upload Snyk results to GitHub
@@ -53,6 +60,7 @@ jobs:
           sarif_file: snyk.sarif
         if: always()
  
+  # JOB 3 : Résumé final
   reporting:
     name: Final Report
     needs: [sast-semgrep, sca-snyk]
@@ -62,4 +70,4 @@ jobs:
       - name: Summary
         run: |
           echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Vérifiez l'onglet **Security > Code scanning**." >> $GITHUB_STEP_SUMMARY
+          echo "Analyses terminées. Vérifiez l'onglet Security." >> $GITHUB_STEP_SUMMARY
