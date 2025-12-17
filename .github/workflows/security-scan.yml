@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ "main" ]
  
-# --- PERMISSIONS : Indispensable pour l'upload vers l'onglet Security ---
 permissions:
   security-events: write
   contents: read
@@ -21,7 +20,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
- 
       - name: Run Semgrep
         run: |
           semgrep scan \
@@ -47,8 +45,7 @@ jobs:
         run: npm install -g snyk
  
       - name: Run Snyk Test
-        # On force Snyk à analyser le requirements.txt sans installation locale
-        # Le "|| true" garantit que le job ne crash pas avant de créer le fichier SARIF
+        # On utilise --package-manager=pip pour forcer l'analyse du fichier sans install
         run: |
           snyk test --token=${{ secrets.SNYK_TOKEN }} \
                     --file=requirements.txt \
@@ -61,16 +58,14 @@ jobs:
           sarif_file: snyk.sarif
         if: always()
  
-  # JOB 3 : Rapport consolidé (Résumé dans GitHub Actions)
+  # JOB 3 : Rapport consolidé
   reporting:
     name: Final Report
     needs: [sast-semgrep, sca-snyk]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Consolidated Summary
+      - name: Summary
         run: |
-          echo "### 🚀 Résumé du Pipeline de Sécurité" >> $GITHUB_STEP_SUMMARY
-          echo "1. **SAST (Semgrep)** : Terminé." >> $GITHUB_STEP_SUMMARY
-          echo "2. **SCA (Snyk)** : Terminé." >> $GITHUB_STEP_SUMMARY
-          echo "Détails complets disponibles dans l'onglet **Security > Code scanning alerts**." >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Résumé Sécurité" >> $GITHUB_STEP_SUMMARY
+          echo "Scans terminés. Les résultats sont dans l'onglet Security." >> $GITHUB_STEP_SUMMARY
