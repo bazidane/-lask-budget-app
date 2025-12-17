@@ -1,0 +1,67 @@
+name: "Security Pipeline (SAST & SCA)"
+ 
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+ 
+jobs:
+  # JOB 1 : Analyse SAST avec Semgrep
+  sast-semgrep:
+    name: SAST Scan (Semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+ 
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config "p/python" \
+            --config "p/flask" \
+            --config "p/security-audit" \
+            --sarif --output semgrep.sarif
+      - name: Upload Semgrep results to GitHub
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: semgrep.sarif
+        if: always()
+ 
+  # JOB 2 : Analyse SCA avec Snyk
+  sca-snyk:
+    name: SCA Scan (Snyk)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+ 
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=snyk.sarif
+ 
+      - name: Upload Snyk results to GitHub
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: snyk.sarif
+        if: always()
+ 
+  # JOB 3 : Génération de rapport consolidé
+  reporting:
+    name: Final Report
+    needs: [sast-semgrep, sca-snyk]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all SARIF results
+        uses: actions/download-artifact@v4
+      - name: Summary
+        run: |
+          echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Scans SAST (Semgrep) et SCA (Snyk) terminés." >> $GITHUB_STEP_SUMMARY
+          echo "Vérifiez l'onglet **Security > Code Scanning** pour le détail des vulnérabilités." >> $GITHUB_STEP_SUMMARY
