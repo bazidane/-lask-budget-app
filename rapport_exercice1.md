@@ -55,3 +55,6 @@ cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
 # Remplacement de eval()
 import ast
 result = ast.literal_eval(formula)
+
+<img width="1002" height="697" alt="image" src="https://github.com/user-attachments/assets/8af6e476-99de-4f71-94e4-2935ccc96694" />
+
