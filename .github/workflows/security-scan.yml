@@ -6,12 +6,13 @@ on:
   pull_request:
     branches: [ "main" ]
  
-# --- AJOUT CRUCIAL : Permissions pour l'onglet Security ---
+# --- IMPORTANT : Autorise l'écriture des résultats dans l'onglet Security ---
 permissions:
   security-events: write
   contents: read
  
 jobs:
+  # JOB 1 : Analyse du code source (SAST) avec Semgrep
   sast-semgrep:
     name: SAST Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -29,11 +30,12 @@ jobs:
             --config "p/security-audit" \
             --sarif --output semgrep.sarif
       - name: Upload Semgrep results
-        uses: github/codeql-action/upload-sarif@v3 # Passage en v3
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
         if: always()
  
+  # JOB 2 : Analyse des dépendances (SCA) avec Snyk
   sca-snyk:
     name: SCA Scan (Snyk)
     runs-on: ubuntu-latest
@@ -43,18 +45,19 @@ jobs:
  
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/python@master
-        continue-on-error: true # Permet de générer le rapport même si des failles sont trouvées
+        continue-on-error: true # <--- Crucial pour générer le rapport malgré les failles
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --sarif-file-output=snyk.sarif
  
-      - name: Upload Snyk results
-        uses: github/codeql-action/upload-sarif@v3 # Passage en v3
+      - name: Upload Snyk results to GitHub
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk.sarif
         if: always()
  
+  # JOB 3 : Résumé final dans le dashboard GitHub Actions
   reporting:
     name: Final Report
     needs: [sast-semgrep, sca-snyk]
@@ -64,4 +67,5 @@ jobs:
       - name: Summary
         run: |
           echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Le pipeline a été mis à jour avec les permissions nécessaires." >> $GITHUB_STEP_SUMMARY
+          echo "Les analyses SAST (Semgrep) et SCA (Snyk) sont terminées." >> $GITHUB_STEP_SUMMARY
+          echo "Consultez l'onglet **Security > Code scanning** pour voir les détails des vulnérabilités." >> $GITHUB_STEP_SUMMARY
