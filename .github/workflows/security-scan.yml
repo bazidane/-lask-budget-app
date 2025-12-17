@@ -7,13 +7,12 @@ on:
     branches: [ "main" ]
  
 # --- DROITS D'ACCÈS ---
-# Permet au workflow d'écrire les rapports dans l'onglet Security de GitHub
 permissions:
   security-events: write
   contents: read
  
 jobs:
-  # JOB 1 : Analyse du code source (SAST) avec Semgrep
+  # JOB 1 : Analyse du code source (SAST)
   sast-semgrep:
     name: SAST Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -36,7 +35,7 @@ jobs:
           sarif_file: semgrep.sarif
         if: always()
  
-  # JOB 2 : Analyse des dépendances (SCA) avec Snyk
+  # JOB 2 : Analyse des dépendances (SCA)
   sca-snyk:
     name: SCA Scan (Snyk)
     runs-on: ubuntu-latest
@@ -44,14 +43,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
  
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+ 
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+ 
       - name: Install Snyk CLI
         run: npm install -g snyk
  
       - name: Run Snyk Test
-        # On utilise le token stocké dans les secrets GitHub
-        # Le "|| true" évite de bloquer le pipeline pour pouvoir uploader le rapport
+        # On utilise le token secret et on force la création du SARIF
+        # Le "|| true" est vital pour que l'étape d'upload s'exécute après
         run: |
-          snyk test --token=${{ secrets.SNYK_TOKEN }} --sarif-file-output=snyk.sarif || true
+          snyk test --token=${{ secrets.SNYK_TOKEN }} --sarif-file-output=snyk.sarif --skip-unresolved || true
  
       - name: Upload Snyk results to GitHub
         uses: github/codeql-action/upload-sarif@v3
@@ -59,7 +68,7 @@ jobs:
           sarif_file: snyk.sarif
         if: always()
  
-  # JOB 3 : Rapport de synthèse
+  # JOB 3 : Résumé final
   reporting:
     name: Final Report
     needs: [sast-semgrep, sca-snyk]
@@ -69,5 +78,5 @@ jobs:
       - name: Summary
         run: |
           echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Analyses terminées avec succès." >> $GITHUB_STEP_SUMMARY
-          echo "Allez dans l'onglet **Security > Code scanning** pour corriger les failles." >> $GITHUB_STEP_SUMMARY
+          echo "Analyses Semgrep et Snyk terminées." >> $GITHUB_STEP_SUMMARY
+          echo "Consultez l'onglet **Security > Code scanning** pour voir les vulnérabilités détectées." >> $GITHUB_STEP_SUMMARY
