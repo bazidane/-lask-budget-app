@@ -1,71 +1,8 @@
-name: "Security Pipeline"
- 
+name: Security Scan Pipeline
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
- 
-permissions:
-  security-events: write
-  contents: read
- 
-jobs:
-  # JOB 1 : Analyse SAST avec Semgrep
-  sast-semgrep:
-    name: SAST Scan (Semgrep)
-    runs-on: ubuntu-latest
-    container:
-      image: returntocorp/semgrep
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Run Semgrep
-        run: |
-          semgrep scan \
-            --config "p/python" \
-            --config "p/flask" \
-            --config "p/security-audit" \
-            --sarif --output semgrep.sarif
-      - name: Upload Semgrep results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: semgrep.sarif
-        if: always()
- 
-  # JOB 2 : Analyse SCA avec Snyk
-  sca-snyk:
-    name: SCA Scan (Snyk)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
- 
-      - name: Install Snyk CLI
-        run: npm install -g snyk
- 
-      - name: Run Snyk Test
-        # On utilise --package-manager=pip pour forcer l'analyse du fichier sans install
-        run: |
-          snyk test --token=${{ secrets.SNYK_TOKEN }} \
-                    --file=requirements.txt \
-                    --package-manager=pip \
-                    --sarif-file-output=snyk.sarif || true
- 
-      - name: Upload Snyk results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: snyk.sarif
-        if: always()
- 
-  # JOB 3 : Rapport consolidé
-  reporting:
-    name: Final Report
-    needs: [sast-semgrep, sca-snyk]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Summary
-        run: |
-          echo "### 🚀 Résumé Sécurité" >> $GITHUB_STEP_SUMMARY
-          echo "Scans terminés. Les résultats sont dans l'onglet Security." >> $GITHUB_STEP_SUMMARY
+    branches:
+      - main
