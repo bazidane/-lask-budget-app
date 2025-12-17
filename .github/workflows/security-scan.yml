@@ -6,13 +6,13 @@ on:
   pull_request:
     branches: [ "main" ]
  
-# --- DROITS D'ACCÈS ---
+# --- PERMISSIONS : Indispensable pour l'onglet Security ---
 permissions:
   security-events: write
   contents: read
  
 jobs:
-  # JOB 1 : Analyse du code source (SAST)
+  # JOB 1 : SAST avec Semgrep (Analyse du code source)
   sast-semgrep:
     name: SAST Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -35,7 +35,7 @@ jobs:
           sarif_file: semgrep.sarif
         if: always()
  
-  # JOB 2 : Analyse des dépendances (SCA)
+  # JOB 2 : SCA avec Snyk (Analyse des dépendances)
   sca-snyk:
     name: SCA Scan (Snyk)
     runs-on: ubuntu-latest
@@ -43,24 +43,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
  
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
- 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
- 
       - name: Install Snyk CLI
         run: npm install -g snyk
  
       - name: Run Snyk Test
-        # On utilise le token secret et on force la création du SARIF
-        # Le "|| true" est vital pour que l'étape d'upload s'exécute après
+        # On force l'analyse du fichier texte pour éviter les erreurs d'installation Python
         run: |
-          snyk test --token=${{ secrets.SNYK_TOKEN }} --sarif-file-output=snyk.sarif --skip-unresolved || true
+          snyk test --token=${{ secrets.SNYK_TOKEN }} \
+                    --file=requirements.txt \
+                    --package-manager=pip \
+                    --sarif-file-output=snyk.sarif || true
  
       - name: Upload Snyk results to GitHub
         uses: github/codeql-action/upload-sarif@v3
@@ -68,7 +60,7 @@ jobs:
           sarif_file: snyk.sarif
         if: always()
  
-  # JOB 3 : Résumé final
+  # JOB 3 : Rapport final
   reporting:
     name: Final Report
     needs: [sast-semgrep, sca-snyk]
@@ -78,5 +70,5 @@ jobs:
       - name: Summary
         run: |
           echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Analyses Semgrep et Snyk terminées." >> $GITHUB_STEP_SUMMARY
-          echo "Consultez l'onglet **Security > Code scanning** pour voir les vulnérabilités détectées." >> $GITHUB_STEP_SUMMARY
+          echo "Les scans de sécurité sont terminés." >> $GITHUB_STEP_SUMMARY
+          echo "Détails disponibles dans l'onglet **Security > Code scanning**." >> $GITHUB_STEP_SUMMARY
