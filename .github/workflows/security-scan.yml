@@ -34,24 +34,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install Snyk CLI
-        run: npm install -g snyk
-      - name: Run Snyk Test
+ 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+ 
+      - name: Install dependencies
         run: |
-          snyk test --token=${{ secrets.SNYK_TOKEN }} --file=requirements.txt --package-manager=pip --sarif-file-output=snyk.sarif || true
-      - name: Upload Snyk results
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+ 
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/python@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=snyk.sarif
+ 
+      - name: Upload Snyk results to GitHub
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk.sarif
         if: always()
- 
-  reporting:
-    name: Final Report
-    needs: [sast-semgrep, sca-snyk]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Summary
-        run: |
-          echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Vérifiez l'onglet **Security > Code Scanning** pour voir les vulnérabilités." >> $GITHUB_STEP_SUMMARY
