@@ -62,7 +62,7 @@ jobs:
         with:
           args: --sarif-file-output=snyk.sarif
 
-      # Vérification de sécurité pour s'assurer que le fichier existe avant l'upload
+      # Vérifiretion de sécurité pourfefefeurer que le fichier existe avant l'upload
       - name: Upload Snyk results to GitHub
         uses: github/codeql-action/upload-sarif@v3
         with:
@@ -78,5 +78,5 @@ jobs:
     steps:
       - name: Summary
         run: |
-          echo "### 🚀 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Security Scan Sxeummary" >> $GITHUB_STEP_SUMMARY
           echo "Les analyses Snyk (SCA) et Semgrep (SAST) sont terminées." >> $GITHUB_STEP_SUMMARY
