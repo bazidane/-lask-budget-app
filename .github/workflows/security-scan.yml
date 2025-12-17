@@ -1,16 +1,16 @@
 name: "Security Pipeline (SAST & SCA)"
- 
+
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
- 
+
 # --- PERMISSIONS : Indispensable pour l'onglet Security ---
 permissions:
   security-events: write
   contents: read
- 
+
 jobs:
   # JOB 1 : SAST avec Semgrep (Analyse du code source)
   sast-semgrep:
@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
- 
+
       - name: Run Semgrep
         run: |
           semgrep scan \
@@ -29,12 +29,13 @@ jobs:
             --config "p/flask" \
             --config "p/security-audit" \
             --sarif --output semgrep.sarif
+            
       - name: Upload Semgrep results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
         if: always()
- 
+
   # JOB 2 : SCA avec Snyk (Analyse des dépendances)
   sca-snyk:
     name: SCA Scan (Snyk)
@@ -42,24 +43,31 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
- 
-      - name: Install Snyk CLI
-        run: npm install -g snyk
- 
-      - name: Run Snyk Test
-        # On force l'analyse du fichier texte pour éviter les erreurs d'installation Python
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
         run: |
-          snyk test --token=${{ secrets.SNYK_TOKEN }} \
-                    --file=requirements.txt \
-                    --package-manager=pip \
-                    --sarif-file-output=snyk.sarif || true
- 
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/python@master
+        continue-on-error: true # Permet de continuer vers l'upload même si des failles sont trouvées
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=snyk.sarif
+
       - name: Upload Snyk results to GitHub
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk.sarif
         if: always()
- 
+
   # JOB 3 : Rapport final
   reporting:
     name: Final Report
