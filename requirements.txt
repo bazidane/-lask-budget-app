@@ -1,4 +1,6 @@
 Flask==2.2.5
 requests==2.31.0
 Jinja2==3.1.2
-Werkzeug==2.2.3
+Werkzeug==3.1.4
+urllib3>=2.2.2 # not directly required, pinned by Snyk to avoid a vulnerability
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
